@@ -6,6 +6,7 @@
 
 const char* const apps_menu_entries[] = {
     [AppsMenuEntryIdxClock] = "clock",
+    [AppsMenuEntryIdxAlarm] = "alarm",
     [AppsMenuEntryIdxComingSoon] = NULL,
 };
 

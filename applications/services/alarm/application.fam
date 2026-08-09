@@ -1,0 +1,17 @@
+App(
+    appid="alarm_service",
+    name="AlarmSrv",
+    apptype=FlipperAppType.SERVICE,
+    entry_point="alarm_srv",
+    cdefines=["SRV_ALARM"],
+    requires=[
+        "gui",
+        "storage",
+        "time",
+        "audio",
+        "low_power",
+    ],
+    stack_size=4 * 1024,
+    targets=["f20", "f21", "f22"],
+    order=195,
+)

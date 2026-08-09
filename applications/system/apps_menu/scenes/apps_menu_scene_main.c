@@ -48,6 +48,14 @@ static void apps_menu_scene_main_on_enter(void* context) {
             instance);
         menu_add_item(
             data->front_menu,
+            "Alarm",
+            "",
+            APPS_MENU_IMG_PATH("alarm_front_8x8.image"),
+            AppsMenuEntryIdxAlarm,
+            apps_scene_setup_menu_callback,
+            instance);
+        menu_add_item(
+            data->front_menu,
             "Coming soon...",
             "",
             APPS_MENU_IMG_PATH("soon_front_8x8.image"),
@@ -63,6 +71,14 @@ static void apps_menu_scene_main_on_enter(void* context) {
             "Clock",
             "",
             APPS_MENU_IMG_PATH("clock_back_11x11.image"),
+            0,
+            NULL,
+            NULL);
+        menu_add_item(
+            data->back_menu,
+            "Alarm",
+            "",
+            APPS_MENU_IMG_PATH("alarm_back_11x11.image"),
             0,
             NULL,
             NULL);

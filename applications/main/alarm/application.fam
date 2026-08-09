@@ -1,0 +1,10 @@
+App(
+    appid="alarm",
+    name="Alarm",
+    apptype=FlipperAppType.APP,
+    order=21,
+    entry_point="alarm_app_entry",
+    requires=["gui", "desktop", "storage", "time", "alarm_service"],
+    stack_size=4 * 1024,
+    targets=["f20", "f21", "f22"],
+)

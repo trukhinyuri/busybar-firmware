@@ -61,6 +61,7 @@ App(
         "state_publisher",
         "discovery",
         "low_power",
+        "alarm_service",
     ],
     targets=["f20", "f21", "f22"],
 )
