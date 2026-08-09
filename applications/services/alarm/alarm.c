@@ -113,6 +113,7 @@ static void alarm_begin_ring(Alarm* instance, size_t index, const AlarmEntry* en
     instance->ringing_index = index;
     instance->ringing_entry = *entry;
     instance->ringing_started_tick = furi_get_tick();
+    instance->ringing_last_play_tick = furi_get_tick();
     instance->input_grab = true;
 
     alarm_ring_view_start(instance, entry);
@@ -144,6 +145,19 @@ static void alarm_end_ring(Alarm* instance) {
     }
 
     alarm_publish(instance, AlarmEventStopped);
+}
+
+/**
+ * Restart the sound when the previous pass has finished.
+ *
+ * Driven from the service tick on purpose — see ALARM_SOUND_DURATION_MS.
+ */
+static void alarm_replay_sound(Alarm* instance) {
+    const uint32_t since_play = furi_get_tick() - instance->ringing_last_play_tick;
+    if(since_play < furi_ms_to_ticks(ALARM_SOUND_DURATION_MS)) return;
+
+    instance->ringing_last_play_tick = furi_get_tick();
+    audio_play_file(instance->audio, ALARM_SOUND_FILE);
 }
 
 /** Keep the volume climbing while ringing, so a quiet start still escalates. */
@@ -181,6 +195,7 @@ static void alarm_tick_callback(void* context) {
     }
 
     alarm_update_ramp(instance);
+    alarm_replay_sound(instance);
 
     const uint32_t elapsed = furi_get_tick() - instance->ringing_started_tick;
     if(elapsed >= furi_ms_to_ticks(ALARM_MAX_RING_MS)) {
@@ -189,11 +204,35 @@ static void alarm_tick_callback(void* context) {
     }
 }
 
+/** Whether a key is one the ringing screen consumes. */
+static bool alarm_is_dismissal_key(InputKey key) {
+    switch(key) {
+    case InputKeyOk:
+    case InputKeyBack:
+    case InputKeyStart:
+    case InputKeyUp:
+    case InputKeyDown:
+    case InputKeyLeft:
+    case InputKeyRight:
+        return true;
+    default:
+        return false;
+    }
+}
+
 /**
  * GUI-thread input hook.
  *
  * Registered on GuiLayerIdTop, which is fed before GuiLayerIdMain, so returning
- * true here keeps every key away from the foreground application while ringing.
+ * true here keeps buttons and the wheel away from the foreground application
+ * while ringing — no application can dismiss the alarm on the user's behalf.
+ *
+ * Mode selector positions are deliberately let through. They report where the
+ * physical switch actually is, so swallowing them would leave the rest of the
+ * firmware believing the switch is somewhere it is not. Letting them past costs
+ * nothing here: only the challenge stops the ringing, so flipping the selector
+ * still cannot silence the alarm.
+ *
  * The event itself is handled on the service thread.
  */
 static bool alarm_input_callback(const InputEvent* event, void* context) {
@@ -202,6 +241,7 @@ static bool alarm_input_callback(const InputEvent* event, void* context) {
 
     Alarm* instance = context;
     if(!instance->input_grab) return false;
+    if(!alarm_is_dismissal_key(event->key)) return false;
 
     furi_message_queue_put(instance->input_queue, event, 0);
 
@@ -226,20 +266,6 @@ static void alarm_input_queue_callback(FuriEventLoopObject* object, void* contex
     }
 }
 
-/** Replay the sound for as long as the alarm is ringing. */
-static void alarm_audio_callback(const void* message, void* context) {
-    furi_assert(message);
-    furi_assert(context);
-
-    const AudioEvent* event = message;
-    Alarm* instance = context;
-
-    if(event->type != AudioEventPlayEnd) return;
-    if(!instance->input_grab) return;
-
-    audio_play_file(instance->audio, ALARM_SOUND_FILE);
-}
-
 static Alarm* alarm_alloc(void) {
     Alarm* instance = malloc(sizeof(*instance));
 
@@ -255,6 +281,7 @@ static Alarm* alarm_alloc(void) {
 
     instance->ringing_index = ALARM_RINGING_NONE;
     instance->ringing_started_tick = 0;
+    instance->ringing_last_play_tick = 0;
     instance->input_grab = false;
     memset(&instance->ringing_entry, 0, sizeof(instance->ringing_entry));
     memset(&instance->ring_view, 0, sizeof(instance->ring_view));
@@ -272,8 +299,6 @@ static Alarm* alarm_alloc(void) {
         GuiLayer* layer = gui_get_layer(instance->gui, GuiLayerIdTop);
         gui_layer_add_input_callback(layer, alarm_input_callback, instance);
     });
-
-    furi_pubsub_subscribe(audio_get_pubsub(instance->audio), alarm_audio_callback, instance);
 
     furi_event_loop_subscribe_message_queue(
         instance->event_loop,

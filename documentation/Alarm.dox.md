@@ -89,12 +89,46 @@ scheduled correctly. In that case the service refuses to arm and surfaces the co
 in the UI rather than silently failing to ring, on the principle that a visibly broken
 alarm is far better than one that quietly does not go off.
 
+# Building and flashing
+
+Build and install with:
+
+```shell
+./fbt INTERCOM_FORCE_VERSION=<radio-version> flash_usb
+```
+
+Two details are easy to get wrong, and both were learned the hard way:
+
+- **Use `flash_usb`, not `flash_usb_unsigned`.** The `signed` flag refers to the
+  Si917 images, not to the STM32 firmware. `flash_usb` includes no Si917 images at
+  all, so it needs no signing keys, but it still declares the `NwpSigned |
+  M4Signed` security flags in the bundle manifest. The device compares those flags
+  against how its Si917 is actually provisioned and rejects a mismatch with
+  `Bundle security mismatch`, so an `_unsigned` bundle is refused on any device
+  whose radio is provisioned as signed.
+- **Pin `INTERCOM_FORCE_VERSION` to the version already on the radio.** The
+  STM32 and the Si917 agree on a handshake string derived from the firmware's git
+  hash. Flashing only the STM32 changes that string on one side, the handshake
+  stops matching, and Wi-Fi, BLE and the SL security state all go quiet — the
+  device reports `wifi: unknown` and `nwp_version: null`. Passing the radio's
+  existing version keeps the handshake intact without reflashing the radio.
+  Read the current value from `GET /api/status` (`firmware.nwp_version` and
+  `firmware.intercom_version`) before flashing.
+
+`fbt` caches the update bundle by filename. After changing anything that affects
+the manifest rather than the firmware binary, delete
+`build/<target>-firmware-D/flash_usb_<target>.tgz` or the previous bundle is
+silently re-uploaded.
+
 # Operational notes
 
 - **Automatic updates must be disabled.** The device ships with
-  `auto_update_enabled: true`; leaving it on lets stock firmware overwrite this build.
-- **Flash main firmware only.** `flash_usb` variants that include `sil_m4`/`sil_nwp`
-  reflash the Si917 wireless co-processor, which is the component that can be bricked.
-  The alarm needs no radio changes.
+  `auto_update_enabled: true`; leaving it on lets stock firmware overwrite this
+  build. Turn it off with
+  `POST /api/update/autoupdate {"is_enabled": false}`.
+- **Never include the Si917 images.** The `flash_usb_full` and `flash_usb_main`
+  presets reflash the wireless co-processor, which is the component that can
+  actually be bricked. The alarm needs no radio changes.
 - **Recovery.** The signed upstream `1.1.1` bundle published on the releases page
-  restores stock firmware, and the on-device recovery service performs a factory reset.
+  restores stock firmware, and the on-device recovery service performs a factory
+  reset.

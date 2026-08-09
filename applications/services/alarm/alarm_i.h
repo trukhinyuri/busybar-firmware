@@ -46,6 +46,16 @@ extern "C" {
 /** Sound played while ringing. */
 #define ALARM_SOUND_FILE ALARM_ASSETS_PATH("sounds/wake.snd")
 
+/**
+ * Length of the sound asset, and therefore how often it is restarted.
+ *
+ * The replay is driven from the service's own tick rather than from the audio
+ * service's play-end event: audio_play_file() blocks until the audio thread
+ * handles it, and that event is published *by* the audio thread, so replaying
+ * from the callback would deadlock the audio service and leave the alarm silent.
+ */
+#define ALARM_SOUND_DURATION_MS (2000U)
+
 /** Ringing user interface, owned by the service and drawn on the top GUI layer. */
 typedef struct {
     bool active;
@@ -92,6 +102,7 @@ struct Alarm {
     AlarmEntry ringing_entry;
 
     uint32_t ringing_started_tick;
+    uint32_t ringing_last_play_tick;
 
     AlarmRingView ring_view;
 };
