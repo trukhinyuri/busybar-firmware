@@ -81,14 +81,20 @@ static AppsMenu* apps_menu_alloc(void* launching_application) {
     AppsMenuSettings settings;
     apps_menu_settings_load(&settings);
 
+    /*
+     * Selecting APPS always opens the application list.
+     *
+     * Previously, entering APPS with a remembered application re-launched it
+     * and returned here without ever building the menu, so the list was only
+     * reachable by pressing BACK out of whatever had been launched. With more
+     * than one application installed that makes the others effectively
+     * invisible — there is no affordance saying a list exists behind the app
+     * that just appeared. The last choice is still recorded, it just no longer
+     * suppresses the menu.
+     */
     if(launching_application) {
         strcpy(settings.active_application, "");
         apps_menu_settings_save(&settings);
-    } else if(strnlen(settings.active_application, sizeof(settings.active_application)) > 0) {
-        Desktop* desktop = furi_record_open(RECORD_DESKTOP);
-        desktop_replace_current_app(desktop, settings.active_application, "-s");
-        furi_record_close(RECORD_DESKTOP);
-        return NULL;
     }
 
     AppsMenu* instance = malloc(sizeof(*instance));
@@ -144,12 +150,14 @@ static AppsMenu* apps_menu_alloc(void* launching_application) {
             instance->back_container, instance->back_scene_window, 1);
     });
 
-    if(instance->launching_application) {
-        static const uint32_t scenes[] = {AppsMenuSceneIdStart, AppsMenuSceneIdMain};
-        scene_manager_next_scenes(instance->scene_manager, scenes, COUNT_OF(scenes));
-    } else {
-        scene_manager_next_scene(instance->scene_manager, AppsMenuSceneIdStart);
-    }
+    /*
+     * Land on the list itself rather than on the title card alone. The card
+     * stays in the stack so BACK still steps out through it, but arriving at
+     * APPS now always shows what can actually be launched instead of a screen
+     * whose only way forward is an unlabelled OK press.
+     */
+    static const uint32_t scenes[] = {AppsMenuSceneIdStart, AppsMenuSceneIdMain};
+    scene_manager_next_scenes(instance->scene_manager, scenes, COUNT_OF(scenes));
 
     return instance;
 }

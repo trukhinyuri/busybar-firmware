@@ -286,9 +286,15 @@ static Alarm* alarm_alloc(void) {
     memset(&instance->ringing_entry, 0, sizeof(instance->ringing_entry));
     memset(&instance->ring_view, 0, sizeof(instance->ring_view));
 
+    /*
+     * A failed load means storage misbehaved, not that the user has no alarms.
+     * Resetting here would write an empty schedule over a file that is probably
+     * still intact, so start empty in RAM and leave the stored copy alone: a
+     * transient read error should cost one boot, not every alarm on the device.
+     */
     if(!alarm_settings_load(&instance->settings)) {
-        FURI_LOG_W(ALARM_TAG, "No stored schedule, starting empty");
-        alarm_settings_reset(&instance->settings);
+        FURI_LOG_E(ALARM_TAG, "Could not read the schedule; not overwriting it");
+        memset(&instance->settings, 0, sizeof(instance->settings));
     }
 
     if(instance->settings.count < 0 || instance->settings.count > (int)ALARM_MAX_COUNT) {
