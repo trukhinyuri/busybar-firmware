@@ -292,6 +292,8 @@ static Alarm* alarm_alloc(void) {
      * still intact, so start empty in RAM and leave the stored copy alone: a
      * transient read error should cost one boot, not every alarm on the device.
      */
+    alarm_settings_ensure_directory();
+
     if(!alarm_settings_load(&instance->settings)) {
         FURI_LOG_E(ALARM_TAG, "Could not read the schedule; not overwriting it");
         memset(&instance->settings, 0, sizeof(instance->settings));

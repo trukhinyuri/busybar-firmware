@@ -14,6 +14,7 @@ App(
         # "time_test",
         "dummy",
         "anim_test",
+        "screenshot_cli",
     ],
     targets=["f20", "f21", "f22"],
 )

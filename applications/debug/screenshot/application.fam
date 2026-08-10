@@ -1,0 +1,9 @@
+App(
+    appid="screenshot_cli",
+    name="screenshot",
+    apptype=FlipperAppType.CLICMD,
+    entry_point="screenshot_cli_command",
+    sources=["screenshot_cli.c"],
+    requires=["gui", "storage"],
+    targets=["f20", "f21", "f22"],
+)
